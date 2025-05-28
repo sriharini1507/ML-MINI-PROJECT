@@ -15,7 +15,11 @@ st.info("📦 App started. Checking model...")
 
 MODEL_PATH = "resnet50_se_forensic_classifier.h5"
 class_labels = ['weapon', 'bloodstain', 'footprints']
-TOGETHER_API_KEY = "97f2e2e43d184a56e60f1895332ede2ccdb9e7fb7260d7c74fe2c74989c17d3a"
+TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
+if TOGETHER_API_KEY is None:
+    st.error("❌ TOGETHER_API_KEY not found in environment variables.")
+    st.stop()
+
 
 if not os.path.exists(MODEL_PATH):
     st.error(f"❌ Model file not found: {MODEL_PATH}")

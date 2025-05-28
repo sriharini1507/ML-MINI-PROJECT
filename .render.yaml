@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: forensic-streamlit-app
+    env: python
+    buildCommand: ""
+    startCommand: streamlit run forensic_app.py
+    envVars:
+      - key: TOGETHER_API_KEY
+        fromEnvVar: TOGETHER_API_KEY
+    plan: free

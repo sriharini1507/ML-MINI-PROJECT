@@ -1,6 +1,7 @@
 import streamlit as st
-import tensorflow as tf
-import numpy as np
+import torch
+import torch.nn as nn
+from torchvision import transforms, models
 from PIL import Image
 import requests
 import json
@@ -10,40 +11,60 @@ st.set_page_config(page_title="Crime Scene Analyzer", layout="centered")
 st.title("🔍 Crime Scene Analyzer")
 st.write("Upload crime scene images to predict forensic labels and get a narrative.")
 
-# === Debug line
-st.info("📦 App started. Checking model...")
-
-MODEL_PATH = "resnet50_se_forensic_classifier.h5"
+# Model file path and labels
+MODEL_PATH = "resnet50_forensic_classifier_final.pth"
 class_labels = ['weapon', 'bloodstain', 'footprints']
-TOGETHER_API_KEY = os.environ.get("TOGETHER_API_KEY")
-if TOGETHER_API_KEY is None:
-    st.error("❌ TOGETHER_API_KEY not found in environment variables.")
-    st.stop()
+TOGETHER_API_KEY = "97f2e2e43d184a56e60f1895332ede2ccdb9e7fb7260d7c74fe2c74989c17d3a"
 
-
+# Check model file presence
 if not os.path.exists(MODEL_PATH):
     st.error(f"❌ Model file not found: {MODEL_PATH}")
     st.stop()
 
+# Define model class
+class PyTorchResNet(nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        # Load resnet50 base (pretrained=False since loading custom weights)
+        self.base_model = models.resnet50(pretrained=False)
+        # Replace final layer with custom classifier
+        self.base_model.fc = nn.Sequential(
+            nn.Linear(2048, 128),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(128, num_classes)
+        )
+    def forward(self, x):
+        return self.base_model(x)
+
+# Load model
 try:
-    model = tf.keras.models.load_model(MODEL_PATH, compile=False)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = PyTorchResNet(num_classes=3)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
+    model.to(device)
+    model.eval()
     st.success("✅ Model loaded successfully.")
 except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
     st.stop()
 
-uploaded_files = st.file_uploader("📂 Upload images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
+# Image preprocessing transform (same as ResNet50 training)
+preprocess = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                         std=[0.229, 0.224, 0.225]),
+])
 
-def predict_image(img):
-    img = img.convert("RGB").resize((224, 224))
-    x = np.array(img) / 255.0
-    x = tf.keras.applications.imagenet_utils.preprocess_input(x)
-    x = np.expand_dims(x, axis=0)
-    preds = model.predict(x)
-    class_idx = np.argmax(preds)
-    label = class_labels[class_idx]
-    confidence = float(preds[0][class_idx])
-    return label, confidence
+def predict_image(img: Image.Image):
+    img_t = preprocess(img).unsqueeze(0).to(device)  # add batch dim and move to device
+    with torch.no_grad():
+        outputs = model(img_t)
+        probs = torch.softmax(outputs, dim=1)
+        confidence, class_idx = torch.max(probs, dim=1)
+        label = class_labels[class_idx.item()]
+        return label, confidence.item()
 
 def generate_narrative(label):
     prompt = f"""
@@ -67,17 +88,18 @@ Response:
     }
     try:
         response = requests.post("https://api.together.xyz/inference", headers=headers, data=json.dumps(body))
+        response.raise_for_status()
         return response.json()["choices"][0]["text"].strip()
     except Exception as e:
         st.error(f"❌ Narrative generation failed: {str(e)}")
         return "Narrative generation failed."
 
+uploaded_files = st.file_uploader("📂 Upload images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
 
-# === Handle uploads
 if uploaded_files:
     st.write(f"📁 {len(uploaded_files)} image(s) uploaded.")
     for file in uploaded_files:
-        image = Image.open(file)
+        image = Image.open(file).convert("RGB")
         st.image(image, caption=file.name, use_column_width=True)
         label, confidence = predict_image(image)
         narrative = generate_narrative(label)

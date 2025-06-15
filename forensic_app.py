@@ -14,7 +14,7 @@ st.write("Upload crime scene images to predict forensic labels and get a narrati
 # Model file path and labels
 MODEL_PATH = "resnet50_forensic_classifier_final.pth"
 class_labels = ['weapon', 'bloodstain', 'footprints']
-TOGETHER_API_KEY = "97f2e2e43d184a56e60f1895332ede2ccdb9e7fb7260d7c74fe2c74989c17d3a"
+TOGETHER_API_KEY = ""
 
 # Check model file presence
 if not os.path.exists(MODEL_PATH):

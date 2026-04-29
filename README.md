@@ -94,3 +94,10 @@ sudo systemctl status apache2
 OR
 
 apache2 -v
+
+
+
+
+
+[webservers]
+localhost ansible_connection=local

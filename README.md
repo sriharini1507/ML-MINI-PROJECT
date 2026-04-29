@@ -101,3 +101,91 @@ apache2 -v
 
 [webservers]
 localhost ansible_connection=local
+
+
+
+
+
+
+
+for web app
+
+✅ STEP 2: Install Ansible
+
+Copy–paste:
+
+sudo apt update
+sudo apt install ansible -y
+
+Check install:
+
+ansible --version
+✅ STEP 3: Create Project Folder
+mkdir ansible-project
+cd ansible-project
+✅ STEP 4: Create Inventory File
+nano hosts
+
+Paste this:
+
+[web]
+localhost ansible_connection=local
+
+👉 Save:
+
+Press CTRL + X
+Press Y
+Press ENTER
+✅ STEP 5: Create Web Page
+nano index.html
+
+Paste:
+
+<html>
+<head><title>My App</title></head>
+<body>
+<h1>Hello from Ansible 🚀</h1>
+<p>I built this!</p>
+</body>
+</html>
+
+Save same way (CTRL + X, Y, ENTER)
+
+✅ STEP 6: Create Playbook
+nano deploy.yml
+
+Paste:
+
+- hosts: web
+  become: yes
+  tasks:
+
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Start nginx
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Copy website
+      copy:
+        src: index.html
+        dest: /var/www/html/index.html
+
+Save it.
+
+✅ STEP 7: Run Ansible
+ansible-playbook -i hosts deploy.yml
+
+👉 Enter your password if asked
+
+✅ STEP 8: Open Your Website
+
+Open browser and go to:
+
+http://localhost
